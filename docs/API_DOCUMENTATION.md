@@ -106,7 +106,7 @@ PDF content is built server-side from stored profile and career records. CV Buil
 ## Cross-cutting behavior
 
 - Express allows JSON bodies up to 1 MB and serves local files under `/uploads`.
-- CORS allows the origins listed in `backend/src/app.js`, `FRONTEND_URL`, and `CORS_ORIGINS`; credentials are enabled.
+- CORS allows the origins listed in `backend/src/express-app.js`, `FRONTEND_URL`, and `CORS_ORIGINS`; credentials are enabled.
 - Most validation errors are `400`; unauthorized is `401`; missing/not-owned resources are `404`; conflicts are `409`; provider and generated-output statuses are described above.
 - The API does not include a general user/account deletion endpoint, pagination, or role-based administrator API.
 

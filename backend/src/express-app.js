@@ -33,6 +33,7 @@ function getAllowedOrigins() {
     .filter(Boolean)
 }
 
+// Keep app construction separate from the Vercel src/index.js function entrypoint.
 export function createApp() {
   const app = express()
 

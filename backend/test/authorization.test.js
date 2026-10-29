@@ -8,7 +8,7 @@
 
 import assert from 'node:assert/strict'
 import { after, before, describe, test } from 'node:test'
-import { createApp } from '../src/app.js'
+import { createApp } from '../src/express-app.js'
 import { prisma } from '../src/config/prisma.js'
 import { signAccessToken } from '../src/utils/jwt.js'
 

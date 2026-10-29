@@ -1,3 +1,3 @@
-import { createApp } from './app.js'
+import { createApp } from './express-app.js'
 
 export default createApp()

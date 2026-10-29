@@ -3,8 +3,8 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
-		"dev": "node --watch src/server.js",
-		"start": "node src/server.js",
+		"dev": "node --watch src/local-server.js",
+		"start": "node src/local-server.js",
 		"build": "prisma generate --schema=prisma/schema.prisma",
 		"test": "node --test",
 		"prisma:validate": "prisma validate --schema=prisma/schema.prisma",

@@ -38,7 +38,7 @@ Copy the result directly into the backend Vercel variable `JWT_SECRET`. Do not s
 
 1. In Vercel, import this repository as a new project.
 2. Set **Root Directory** to `backend` and enable the option to include files outside the root directory if Vercel asks. The project needs the root `package.json`/lockfile only if Vercel detects it as a monorepo; otherwise use the backend package/lockfile. Confirm the install and build use the backend project’s `package.json`.
-3. Use the Node.js runtime and the Express framework detection. The Vercel entrypoint is `backend/src/index.js`; it exports the Express app created by `createApp()` in `src/app.js`. All existing route mounts remain in that app.
+3. Use the Node.js runtime and Express framework detection. The Vercel entrypoint is `backend/src/index.js`; it exports the Express app created by `createApp()` in `src/express-app.js`. The local listener is `src/local-server.js`. Only `src/index.js` uses a conventional Vercel Express entrypoint name, preventing Vercel from separately loading the app factory or local listener.
 4. Set these **backend-only** environment variables for the Vercel **Production** environment. Add them to Preview only if you intend to run preview deployments against a separately selected database and storage configuration.
 
 | Variable | Required | Value |

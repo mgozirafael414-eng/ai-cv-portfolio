@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { after, before, test } from 'node:test'
 import { randomUUID } from 'node:crypto'
 import { mkdir, rm, writeFile } from 'node:fs/promises'
-import { createApp } from '../src/app.js'
+import { createApp } from '../src/express-app.js'
 import { prisma } from '../src/config/prisma.js'
 import { signAccessToken } from '../src/utils/jwt.js'
 

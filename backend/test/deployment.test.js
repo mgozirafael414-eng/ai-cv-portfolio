@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { after, before, test } from 'node:test'
+import { access } from 'node:fs/promises'
 
 const originalEnvironment = {
   NODE_ENV: process.env.NODE_ENV,
@@ -32,6 +33,9 @@ after(async () => {
 
 test('exports an Express app suitable for Vercel and serves its health endpoint', async () => {
   assert.equal(typeof app, 'function')
+  assert.equal(typeof app.listen, 'function')
+  await assert.rejects(access(new URL('../src/app.js', import.meta.url)))
+  await assert.rejects(access(new URL('../src/server.js', import.meta.url)))
   const response = await fetch(`${baseUrl}/health`)
   assert.equal(response.status, 200)
   assert.deepEqual(await response.json(), { name: 'AI CV Portfolio API', status: 'ok' })

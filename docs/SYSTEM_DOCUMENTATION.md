@@ -76,7 +76,7 @@ flowchart LR
   Visitor[Public visitor] -->|GET published slug| API
 ```
 
-The frontend calls the API through `frontend/src/services/api.js`. The API is assembled in `backend/src/app.js`; routes call controllers, services, validation helpers, and Prisma. Persistent profile uploads use a backend-issued signed Cloudinary request, direct browser-to-Cloudinary transfer, and server-side asset verification before the profile URL is saved. Legacy/local development paths remain supported under an `uploads` directory resolved against the backend process's current working directory. The Vercel filesystem is temporary, so production uploads require Cloudinary configuration. The public portfolio endpoint bypasses authentication but only returns a portfolio when it is marked published. There is no OpenAPI/Swagger specification in the repository.
+The frontend calls the API through `frontend/src/services/api.js`. The API is assembled in `backend/src/express-app.js`; the Vercel entrypoint `backend/src/index.js` exports the created Express app, while `backend/src/local-server.js` starts a local listener. Routes call controllers, services, validation helpers, and Prisma. Persistent profile uploads use a backend-issued signed Cloudinary request, direct browser-to-Cloudinary transfer, and server-side asset verification before the profile URL is saved. Legacy/local development paths remain supported under an `uploads` directory resolved against the backend process's current working directory. The Vercel filesystem is temporary, so production uploads require Cloudinary configuration. The public portfolio endpoint bypasses authentication but only returns a portfolio when it is marked published. There is no OpenAPI/Swagger specification in the repository.
 
 ## 5. Technology stack
 
@@ -109,7 +109,7 @@ These are the technologies present in the package manifests. Reasons stated here
 │   │       ├── 20260919133202_init/
 │   │       └── 20260919165434_add_ai_recommendation_status/
 │   ├── src/
-│   │   ├── app.js, server.js
+│   │   ├── express-app.js, local-server.js, index.js
 │   │   ├── config/               # groq.js, prisma.js
 │   │   ├── controllers/          # Auth, profile, resources, AI, and PDF
 │   │   ├── middleware/           # auth.middleware.js
