@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { after, before, test } from 'node:test'
+import { randomUUID } from 'node:crypto'
 import { mkdir, rm, writeFile } from 'node:fs/promises'
 import { createApp } from '../src/app.js'
 import { prisma } from '../src/config/prisma.js'
@@ -26,6 +27,8 @@ const originalMethods = {
 let server
 let baseUrl
 let profileImage = null
+let longCvDescription = ''
+const profileImageFilename = `pdf-test-${randomUUID()}.png`
 
 before(async () => {
   await mkdir('uploads/profile-images', { recursive: true })
@@ -88,7 +91,7 @@ before(async () => {
       position: 'Frontend Developer',
       startDate: new Date('2023-01-01'),
       endDate: null,
-      description: 'Built product experiences for clients and collaborated on engineering teams.',
+      description: longCvDescription || 'Built product experiences for clients and collaborated on engineering teams.',
     }]
   }
 
@@ -132,7 +135,7 @@ before(async () => {
 })
 
 after(async () => {
-  await rm('uploads/profile-images', { recursive: true, force: true })
+  await rm(`uploads/profile-images/${profileImageFilename}`, { force: true })
   prisma.user.findUnique = originalMethods.userFindUnique
   prisma.profile.findUnique = originalMethods.profileFindUnique
   prisma.education.findMany = originalMethods.educationFindMany
@@ -224,10 +227,49 @@ test('authenticated local frontend can request the PDF endpoint', async () => {
   assert.equal(response.headers.get('content-type'), 'application/pdf')
 })
 
+test('authenticated user can export each CV template and color preset', async () => {
+  const selections = [
+    ['professional', 'navy'],
+    ['modern', 'teal'],
+    ['classic', 'royal'],
+    ['minimal', 'burgundy'],
+    ['creative', 'forest'],
+    ['professional', 'monochrome'],
+  ]
+
+  for (const [template, colorPreset] of selections) {
+    const query = new URLSearchParams({
+      template,
+      colorPreset,
+      title: 'Selected CV',
+      sections: 'summary,experience,skills,projects',
+    })
+    const response = await request(`/api/cv/pdf?${query}`, { token: signAccessToken(userId) })
+    const pdf = Buffer.from(await response.arrayBuffer())
+
+    assert.equal(response.status, 200, `${template}/${colorPreset} should export`)
+    assert.match(pdf.toString('latin1'), /^%PDF/)
+  }
+})
+
+test('long CV descriptions flow onto additional PDF pages', async () => {
+  longCvDescription = 'Designed, implemented, tested, and documented accessible software experiences. '.repeat(180)
+  try {
+    const response = await request('/api/cv/pdf?template=professional&colorPreset=navy', { token: signAccessToken(userId) })
+    const pdf = Buffer.from(await response.arrayBuffer())
+    const pageCount = (pdf.toString('latin1').match(/\/Type\s*\/Page\b/g) || []).length
+
+    assert.equal(response.status, 200)
+    assert.ok(pageCount > 1, `expected multiple PDF pages, received ${pageCount}`)
+  } finally {
+    longCvDescription = ''
+  }
+})
+
 test('PDF succeeds with a valid stored profile image', async () => {
   await mkdir('uploads/profile-images', { recursive: true })
-  await writeFile('uploads/profile-images/pdf-test.png', Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64'))
-  profileImage = '/uploads/profile-images/pdf-test.png'
+  await writeFile(`uploads/profile-images/${profileImageFilename}`, Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64'))
+  profileImage = `/uploads/profile-images/${profileImageFilename}`
 
   const response = await request('/api/cv/pdf', { token: signAccessToken(userId) })
   const pdf = Buffer.from(await response.arrayBuffer())

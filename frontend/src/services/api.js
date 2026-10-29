@@ -92,10 +92,16 @@ export const aiApi = {
 }
 
 export const cvPdfApi = {
-  download: async () => {
+  download: async (settings = {}) => {
     const apiUrl = requireApiUrl()
     const token = localStorage.getItem('cv_auth_token')
-    const response = await fetch(`${apiUrl}/api/cv/pdf`, {
+    const query = new URLSearchParams({
+      template: settings.template || 'professional',
+      colorPreset: settings.colorPreset || 'navy',
+      title: settings.title || 'Professional CV',
+      sections: Object.entries(settings.sections || {}).filter(([, visible]) => visible).map(([name]) => name).join(','),
+    })
+    const response = await fetch(`${apiUrl}/api/cv/pdf?${query}`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     })
 

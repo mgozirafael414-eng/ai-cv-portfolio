@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { portfolioApi } from '../../services/api.js'
+import { portfolioApi, resolveApiAssetUrl } from '../../services/api.js'
 
 export function PortfolioPublicPage({ slug }) {
   const [data, setData] = useState(null)
@@ -72,82 +72,129 @@ export function PortfolioPublicPage({ slug }) {
     certificates: user.certificates || [],
   }
 
-  const templateMap = {
-    professional: ProfessionalTemplate,
-    modern: ModernTemplate,
-    minimal: MinimalTemplate,
-  }
-  const Template = templateMap[data.template] || ProfessionalTemplate
-
-  return <div className="public-portfolio-shell"><Template data={{ portfolio: data, user, profile, sections }} /></div>
+  return <div className="public-portfolio-shell"><PortfolioContent data={{ portfolio: data, user, profile, sections }} /></div>
 }
 
-function ProfessionalTemplate({ data }) {
+function PortfolioContent({ data }) {
   const { portfolio, user, profile, sections } = data
   const { skills, experience, projects, education, certificates } = sections
+  const ownerName = user.name || portfolio.title || 'Portfolio'
+  const profileImage = profile.profileImage ? resolveApiAssetUrl(profile.profileImage) : ''
+  const contactLinks = [
+    { label: 'Website', url: profile.websiteUrl },
+    { label: 'GitHub', url: profile.githubUrl },
+    { label: 'LinkedIn', url: profile.linkedinUrl },
+  ].filter((link) => isHttpUrl(link.url))
+  const template = ['professional', 'modern', 'minimal'].includes(portfolio.template)
+    ? portfolio.template
+    : 'professional'
+
   return (
-    <article className="portfolio-public professional-template">
-      <header className="portfolio-hero professional">
-        <div>
-          <p className="eyebrow">Portfolio</p>
-          <h1>{portfolio.title || user.name || 'Portfolio'}</h1>
-          <p>{profile.headline || 'Professional portfolio'}</p>
-          <div className="portfolio-links">
-            {profile.location && <span>{profile.location}</span>}
-            {profile.websiteUrl && <a href={profile.websiteUrl} target="_blank" rel="noreferrer">Website</a>}
-            {profile.githubUrl && <a href={profile.githubUrl} target="_blank" rel="noreferrer">GitHub</a>}
-            {profile.linkedinUrl && <a href={profile.linkedinUrl} target="_blank" rel="noreferrer">LinkedIn</a>}
+    <main className={`public-portfolio public-portfolio--${template}`}>
+      <nav className="public-portfolio-nav" aria-label="Portfolio sections">
+        <a className="public-portfolio-brand" href="#top">{ownerName}</a>
+        <div className="public-portfolio-nav-links">
+          {projects.length > 0 && <a href="#projects">Projects</a>}
+          {skills.length > 0 && <a href="#skills">Skills</a>}
+          {experience.length > 0 && <a href="#experience">Experience</a>}
+          {education.length > 0 && <a href="#education">Education</a>}
+          {certificates.length > 0 && <a href="#certificates">Certificates</a>}
+          {contactLinks.length > 0 && <a href="#contact">Contact</a>}
+        </div>
+      </nav>
+
+      <header className="public-portfolio-hero" id="top">
+        <div className="public-portfolio-hero-copy">
+          <p className="public-portfolio-kicker">{portfolio.title && portfolio.title !== ownerName ? portfolio.title : 'Portfolio'}</p>
+          <h1>{ownerName}</h1>
+          {profile.headline && <p className="public-portfolio-headline">{profile.headline}</p>}
+          {profile.location && <p className="public-portfolio-location">{profile.location}</p>}
+          {profile.bio?.trim().length > 180 && <p className="public-portfolio-intro">{getExcerpt(profile.bio, 180)}</p>}
+          <div className="public-portfolio-actions">
+            {projects.length > 0 && <a className="public-portfolio-button public-portfolio-button--primary" href="#projects">View projects <span aria-hidden="true">↓</span></a>}
+            {contactLinks.length > 0 && <a className="public-portfolio-button public-portfolio-button--secondary" href="#contact">Contact me</a>}
           </div>
         </div>
-        <div className="portfolio-avatar">{getInitials(user.name)}</div>
+        <ProfilePortrait key={profileImage} imageUrl={profileImage} name={ownerName} />
       </header>
 
-      {profile.bio && <section className="portfolio-section"><h2>About</h2><p>{profile.bio}</p></section>}
-      {skills.length > 0 && <section className="portfolio-section"><h2>Skills</h2><ul className="tag-list">{skills.map((skill) => <li key={skill.id}>{skill.name}</li>)}</ul></section>}
-      {experience.length > 0 && <section className="portfolio-section"><h2>Experience</h2>{experience.map((job) => <div key={job.id} className="portfolio-item"><h3>{formatExperienceTitle(job)}</h3><small>{formatRange(job.startDate, job.endDate)}</small><p>{job.description}</p></div>)}</section>}
-      {education.length > 0 && <section className="portfolio-section"><h2>Education</h2>{education.map((item) => <div key={item.id} className="portfolio-item"><h3>{item.institution}</h3><small>{[item.degree, item.field].filter(Boolean).join(' · ')}</small><p>{formatRange(item.startDate, item.endDate)}</p></div>)}</section>}
-      {projects.length > 0 && <section className="portfolio-section"><h2>Projects</h2>{projects.map((project) => <div key={project.id} className="portfolio-item"><h3>{project.title}</h3><p>{project.description}</p>{project.technologies?.length > 0 && <small>{project.technologies.join(' • ')}</small>}</div>)}</section>}
-      {certificates.length > 0 && <section className="portfolio-section"><h2>Certificates</h2>{certificates.map((certificate) => <div key={certificate.id} className="portfolio-item"><h3>{certificate.name}</h3><small>{certificate.issuer}</small><p>{formatDate(certificate.issueDate)}</p></div>)}</section>}
-    </article>
+      {profile.bio && <section className="public-portfolio-section public-portfolio-about" id="about" aria-labelledby="about-heading">
+        <div className="public-portfolio-section-heading"><p className="public-portfolio-kicker">A little about me</p><h2 id="about-heading">About</h2></div>
+        <p>{profile.bio}</p>
+      </section>}
+
+      {projects.length > 0 && <section className="public-portfolio-section" id="projects" aria-labelledby="projects-heading">
+        <div className="public-portfolio-section-heading"><p className="public-portfolio-kicker">Selected work</p><h2 id="projects-heading">Projects</h2></div>
+        <div className="public-portfolio-project-grid">{projects.map((project) => {
+          const projectLinks = [
+            { label: 'GitHub repository', url: project.githubUrl },
+            { label: 'Live project', url: project.liveUrl },
+          ].filter((link) => isHttpUrl(link.url))
+          const description = project.description ? getExcerpt(project.description, 190) : ''
+          return <article className="public-portfolio-project" key={project.id}>
+            <div className="public-portfolio-project-media">
+              <div className="public-portfolio-project-placeholder" aria-hidden="true"><span>{getInitials(project.title)}</span></div>
+              {isHttpUrl(project.imageUrl) && <img className="public-portfolio-project-image" src={project.imageUrl} alt={`${project.title} project`} loading="lazy" onError={(event) => { event.currentTarget.hidden = true }} />}
+            </div>
+            <div className="public-portfolio-project-content">
+              <h3>{project.title}</h3>
+              {description && <p>{description}</p>}
+              {project.technologies?.length > 0 && <ul className="public-portfolio-tags" aria-label={`${project.title} technologies`}>{project.technologies.map((technology) => <li key={technology}>{technology}</li>)}</ul>}
+              {projectLinks.length > 0 && <div className="public-portfolio-project-links">{projectLinks.map((link) => <a key={link.label} href={link.url} target="_blank" rel="noopener noreferrer">{link.label} <span aria-hidden="true">↗</span></a>)}</div>}
+            </div>
+          </article>
+        })}</div>
+      </section>}
+
+      {skills.length > 0 && <section className="public-portfolio-section" id="skills" aria-labelledby="skills-heading">
+        <div className="public-portfolio-section-heading"><p className="public-portfolio-kicker">What I work with</p><h2 id="skills-heading">Skills</h2></div>
+        <ul className="public-portfolio-tags">{skills.map((skill) => <li key={skill.id}>{skill.name}</li>)}</ul>
+      </section>}
+
+      {(experience.length > 0 || education.length > 0) && <section className="public-portfolio-section public-portfolio-journey" aria-label="Experience and education">
+        {experience.length > 0 && <div className="public-portfolio-timeline" id="experience">
+          <div className="public-portfolio-section-heading"><p className="public-portfolio-kicker">Career</p><h2>Experience</h2></div>
+          {experience.map((job) => <article className="public-portfolio-timeline-item" key={job.id}>
+            <div><h3>{formatExperienceTitle(job)}</h3>{job.description && <p>{job.description}</p>}</div>
+            {(job.startDate || job.endDate) && <p className="public-portfolio-date">{formatRange(job.startDate, job.endDate)}</p>}
+          </article>)}
+        </div>}
+        {education.length > 0 && <div className="public-portfolio-timeline" id="education">
+          <div className="public-portfolio-section-heading"><p className="public-portfolio-kicker">Learning</p><h2>Education</h2></div>
+          {education.map((item) => {
+            const qualification = [item.degree, item.field].filter(Boolean).join(' · ')
+            return <article className="public-portfolio-timeline-item" key={item.id}>
+              <div><h3>{item.institution}</h3>{qualification && <p>{qualification}</p>}{item.description && <p>{item.description}</p>}</div>
+              {(item.startDate || item.endDate) && <p className="public-portfolio-date">{formatRange(item.startDate, item.endDate)}</p>}
+            </article>
+          })}
+        </div>}
+      </section>}
+
+      {certificates.length > 0 && <section className="public-portfolio-section" id="certificates" aria-labelledby="certificates-heading">
+        <div className="public-portfolio-section-heading"><p className="public-portfolio-kicker">Credentials</p><h2 id="certificates-heading">Certificates</h2></div>
+        <div className="public-portfolio-certificate-list">{certificates.map((certificate) => <article className="public-portfolio-certificate" key={certificate.id}>
+          <div><h3>{certificate.name}</h3>{certificate.issuer && <p>{certificate.issuer}</p>}</div>
+          {certificate.issueDate && <p className="public-portfolio-date">{formatDate(certificate.issueDate)}</p>}
+        </article>)}</div>
+      </section>}
+
+      {contactLinks.length > 0 && <footer className="public-portfolio-contact" id="contact" aria-labelledby="contact-heading">
+        <div><p className="public-portfolio-kicker">Keep in touch</p><h2 id="contact-heading">Contact</h2><p>Find me on the links below.</p></div>
+        <div className="public-portfolio-contact-links">{contactLinks.map((link) => <a key={link.label} href={link.url} target="_blank" rel="noopener noreferrer">{link.label}<span aria-hidden="true">↗</span></a>)}</div>
+      </footer>}
+    </main>
   )
 }
 
-function ModernTemplate({ data }) {
-  const { user, profile, sections } = data
-  return (
-    <article className="portfolio-public modern-template">
-      <header className="portfolio-hero modern">
-        <div>
-          <p className="eyebrow">Available for work</p>
-          <h1>{user.name || 'Your name'}</h1>
-          <p>{profile.headline || 'Product-minded builder'}</p>
-        </div>
-        <div className="portfolio-avatar">{getInitials(user.name)}</div>
-      </header>
-      {profile.bio && <section className="portfolio-section"><h2>About</h2><p>{profile.bio}</p></section>}
-      {sections.projects.length > 0 && <section className="portfolio-section"><h2>Featured work</h2><div className="portfolio-grid">{sections.projects.map((project) => <div key={project.id} className="portfolio-card"><h3>{project.title}</h3><p>{project.description}</p>{project.technologies?.length > 0 && <small>{project.technologies.join(' • ')}</small>}</div>)}</div></section>}
-      {sections.skills.length > 0 && <section className="portfolio-section"><h2>Skills</h2><ul className="tag-list">{sections.skills.map((skill) => <li key={skill.id}>{skill.name}</li>)}</ul></section>}
-      {sections.experience.length > 0 && <section className="portfolio-section"><h2>Experience</h2>{sections.experience.map((job) => <div key={job.id} className="portfolio-item"><h3>{formatExperienceTitle(job)}</h3><small>{formatRange(job.startDate, job.endDate)}</small><p>{job.description}</p></div>)}</section>}
-      {sections.certificates.length > 0 && <section className="portfolio-section"><h2>Certificates</h2>{sections.certificates.map((certificate) => <div key={certificate.id} className="portfolio-item"><h3>{certificate.name}</h3><small>{certificate.issuer}</small></div>)}</section>}
-    </article>
-  )
-}
+function ProfilePortrait({ imageUrl, name }) {
+  const [imageFailed, setImageFailed] = useState(false)
 
-function MinimalTemplate({ data }) {
-  const { user, profile, sections } = data
-  return (
-    <article className="portfolio-public minimal-template">
-      <header className="portfolio-hero minimal">
-        <h1>{user.name || 'Your name'}</h1>
-        <p>{profile.headline || 'Professional portfolio'}</p>
-      </header>
-      {profile.bio && <section className="portfolio-section"><h2>About</h2><p>{profile.bio}</p></section>}
-      {sections.experience.length > 0 && <section className="portfolio-section"><h2>Experience</h2>{sections.experience.map((job) => <div key={job.id} className="portfolio-item"><h3>{formatExperienceTitle(job)}</h3><small>{formatRange(job.startDate, job.endDate)}</small></div>)}</section>}
-      {sections.projects.length > 0 && <section className="portfolio-section"><h2>Projects</h2>{sections.projects.map((project) => <div key={project.id} className="portfolio-item"><h3>{project.title}</h3><p>{project.description}</p></div>)}</section>}
-      {sections.education.length > 0 && <section className="portfolio-section"><h2>Education</h2>{sections.education.map((item) => <div key={item.id} className="portfolio-item"><h3>{item.institution}</h3><small>{item.degree || item.field}</small></div>)}</section>}
-      {sections.skills.length > 0 && <section className="portfolio-section"><h2>Skills</h2><ul className="tag-list">{sections.skills.map((skill) => <li key={skill.id}>{skill.name}</li>)}</ul></section>}
-    </article>
-  )
+  if (!imageUrl || imageFailed) {
+    return <div className="public-portfolio-portrait"><span aria-hidden="true">{getInitials(name)}</span></div>
+  }
+
+  return <div className="public-portfolio-portrait"><img src={imageUrl} alt={`${name} profile`} onError={() => setImageFailed(true)} /></div>
 }
 
 function formatExperienceTitle(job) {
@@ -176,12 +223,32 @@ function getInitials(name) {
 }
 
 function formatDate(value) {
-  if (!value) return 'Date not set'
+  if (!value) return ''
   return new Date(value).toLocaleDateString(undefined, { year: 'numeric', month: 'short' })
 }
 
+function getExcerpt(value, maxLength) {
+  const text = String(value || '').trim()
+  if (text.length <= maxLength) return text
+
+  const sentenceEnd = text.search(/[.!?]\s/)
+  if (sentenceEnd > 0 && sentenceEnd < maxLength) return text.slice(0, sentenceEnd + 1)
+  return `${text.slice(0, maxLength).trimEnd()}…`
+}
+
 function formatRange(startDate, endDate) {
-  const start = startDate ? formatDate(startDate) : 'Start date not set'
+  const start = startDate ? formatDate(startDate) : ''
   const end = endDate ? formatDate(endDate) : 'Present'
+  if (!start) return end
   return `${start} — ${end}`
+}
+
+function isHttpUrl(value) {
+  if (typeof value !== 'string' || !value.trim()) return false
+  try {
+    const url = new URL(value)
+    return url.protocol === 'http:' || url.protocol === 'https:'
+  } catch {
+    return false
+  }
 }

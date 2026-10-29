@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useAuth } from '../../hooks/useAuth.js'
 import { certificatesApi, educationApi, experienceApi, projectsApi, profileApi, skillsApi } from '../../services/api.js'
 import { ProfilePage } from '../profile/ProfilePage.jsx'
@@ -15,7 +15,138 @@ export function DashboardPage({ page, navigate }) {
   const { user, logout } = useAuth()
   const [mobileNav, setMobileNav] = useState(false)
   const [profileMenuOpen, setProfileMenuOpen] = useState(false)
-    return <div className="dashboard-frame"><aside className={`sidebar ${mobileNav ? 'is-open' : ''}`}><div className="sidebar-top"><p className="brand-mark">Workspace</p><button className="close-nav" onClick={() => setMobileNav(false)}>×</button></div><p className="nav-label">Workspace</p><nav>{[['dashboard','Overview'],['profile','Profile'],['education','Education'],['experience','Experience'],['skills','Skills'],['projects','Projects'],['certificates','Certificates']].map(([key, label]) => <button className={page === key ? 'nav-item active' : 'nav-item'} key={key} onClick={() => { navigate(key === 'dashboard' ? '/dashboard' : `/${key}`); setMobileNav(false) }}>{label}<span>↗</span></button>)}</nav><p className="nav-label secondary-label">Coming later</p><nav>{[['cv-builder','CV Builder'],['ai-assistant','AI Assistant'],['portfolio','Portfolio']].map(([key, label]) => <button className={page === key ? 'nav-item active' : 'nav-item muted'} key={key} onClick={() => { navigate(`/${key}`); setMobileNav(false) }}>{label}<span>○</span></button>)}</nav><button className="logout-button" onClick={logout}>Sign out <span>↗</span></button></aside><main className="workspace"><header className="topbar"><button className="menu-button" onClick={() => setMobileNav(true)}>☰</button><div className="topbar-context">Workspace <span>/</span> {page}</div><div className="profile-menu"><button className="user-chip" onClick={() => setProfileMenuOpen((open) => !open)} aria-expanded={profileMenuOpen}><span className="avatar">{user.name?.slice(0, 1).toUpperCase()}</span><span>{user.name}</span></button>{profileMenuOpen && <div className="profile-menu-panel"><strong>{user.name}</strong><small>{user.email}</small><button onClick={() => { navigate('/profile'); setProfileMenuOpen(false) }}>View profile</button><button onClick={logout}>Sign out</button></div>}</div></header><section className="content-area">{page === 'dashboard' ? <><p className="eyebrow">Monday, workspace review</p><h1>Good to see you, {user.name?.split(' ')[0]}.</h1><DashboardOverview navigate={navigate} /></> : <PageContent page={page} navigate={navigate} />}</section></main></div>
+  const menuToggleRef = useRef(null)
+
+  useEffect(() => {
+    if (!mobileNav) return undefined
+
+    const closeOnEscape = (event) => {
+      if (event.key === 'Escape') {
+        setMobileNav(false)
+        menuToggleRef.current?.focus()
+      }
+    }
+
+    window.addEventListener('keydown', closeOnEscape)
+    return () => window.removeEventListener('keydown', closeOnEscape)
+  }, [mobileNav])
+
+  const navigateFromMenu = (path) => {
+    navigate(path)
+    setMobileNav(false)
+    menuToggleRef.current?.focus()
+  }
+
+  const closeMobileMenu = () => {
+    setMobileNav(false)
+    menuToggleRef.current?.focus()
+  }
+
+  const workspaceRoutes = [
+    ['dashboard', 'Overview'],
+    ['profile', 'Profile'],
+    ['education', 'Education'],
+    ['experience', 'Experience'],
+    ['skills', 'Skills'],
+    ['projects', 'Projects'],
+    ['certificates', 'Certificates'],
+  ]
+  const careerToolRoutes = [
+    ['cv-builder', 'CV Builder'],
+    ['ai-assistant', 'AI Assistant'],
+    ['portfolio', 'Portfolio'],
+  ]
+
+  return (
+    <div className="dashboard-frame">
+      <aside className={`sidebar ${mobileNav ? 'is-open' : ''}`}>
+        <div className="sidebar-top">
+          <p className="brand-mark">Workspace</p>
+          <button
+            type="button"
+            className="close-nav"
+            aria-label="Close navigation menu"
+            onClick={closeMobileMenu}
+          >
+            ×
+          </button>
+        </div>
+        <nav id="workspace-navigation" aria-label="Workspace navigation">
+          <p className="nav-label">Workspace</p>
+          {workspaceRoutes.map(([key, label]) => (
+            <button
+              type="button"
+              className={page === key ? 'nav-item active' : 'nav-item'}
+              aria-current={page === key ? 'page' : undefined}
+              key={key}
+              onClick={() => navigateFromMenu(key === 'dashboard' ? '/dashboard' : `/${key}`)}
+            >
+              {label}<span aria-hidden="true">↗</span>
+            </button>
+          ))}
+          <p className="nav-label secondary-label">Career tools</p>
+          {careerToolRoutes.map(([key, label]) => (
+            <button
+              type="button"
+              className={page === key ? 'nav-item active' : 'nav-item'}
+              aria-current={page === key ? 'page' : undefined}
+              key={key}
+              onClick={() => navigateFromMenu(`/${key}`)}
+            >
+              {label}<span aria-hidden="true">↗</span>
+            </button>
+          ))}
+        </nav>
+        <button type="button" className="logout-button" onClick={logout}>
+          Sign out <span aria-hidden="true">↗</span>
+        </button>
+      </aside>
+      <main className="workspace">
+        <header className="topbar">
+          <button
+            ref={menuToggleRef}
+            type="button"
+            className="menu-button"
+            aria-label={mobileNav ? 'Close navigation menu' : 'Open navigation menu'}
+            aria-expanded={mobileNav}
+            aria-controls="workspace-navigation"
+            onClick={() => setMobileNav((open) => !open)}
+          >
+            <span aria-hidden="true">{mobileNav ? '×' : '☰'}</span>
+          </button>
+          <div className="topbar-context">Workspace <span>/</span> {page}</div>
+          <div className="profile-menu">
+            <button
+              type="button"
+              className="user-chip"
+              onClick={() => setProfileMenuOpen((open) => !open)}
+              aria-expanded={profileMenuOpen}
+            >
+              <span className="avatar">{user.name?.slice(0, 1).toUpperCase()}</span>
+              <span>{user.name}</span>
+            </button>
+            {profileMenuOpen && (
+              <div className="profile-menu-panel">
+                <strong>{user.name}</strong>
+                <small>{user.email}</small>
+                <button type="button" onClick={() => { navigate('/profile'); setProfileMenuOpen(false) }}>View profile</button>
+                <button type="button" onClick={logout}>Sign out</button>
+              </div>
+            )}
+          </div>
+        </header>
+        <section className="content-area">
+          {page === 'dashboard'
+            ? <>
+                <p className="eyebrow">Monday, workspace review</p>
+                <h1>Good to see you, {user.name?.split(' ')[0]}.</h1>
+                <DashboardOverview navigate={navigate} />
+              </>
+            : <PageContent page={page} navigate={navigate} />}
+        </section>
+      </main>
+    </div>
+  )
 }
 
 function DashboardOverview({ navigate, user }) {
