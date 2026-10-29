@@ -1,0 +1,163 @@
+generator client {
+	provider = "prisma-client-js"
+}
+
+datasource db {
+	provider = "postgresql"
+	url      = env("DATABASE_URL")
+}
+
+model User {
+	id           String         @id @default(uuid()) @db.Uuid
+	name         String         @db.VarChar(120)
+	email        String         @unique @db.VarChar(320)
+	passwordHash String         @map("password_hash") @db.VarChar(255)
+	createdAt    DateTime       @default(now()) @map("created_at")
+	updatedAt    DateTime       @updatedAt @map("updated_at")
+	profile      Profile?
+	education    Education[]
+	experience   Experience[]
+	skills       Skill[]
+	projects     Project[]
+	certificates Certificate[]
+	portfolio    Portfolio?
+	aiGenerations AIGeneration[]
+
+	@@map("users")
+}
+
+model Profile {
+	id           String   @id @default(uuid()) @db.Uuid
+	userId       String   @unique @map("user_id") @db.Uuid
+	phone        String?  @db.VarChar(40)
+	location     String?  @db.VarChar(160)
+	headline     String?  @db.VarChar(200)
+	bio          String?
+	profileImage String?  @map("profile_image") @db.VarChar(2048)
+	linkedinUrl  String?  @map("linkedin_url") @db.VarChar(2048)
+	githubUrl    String?  @map("github_url") @db.VarChar(2048)
+	websiteUrl   String?  @map("website_url") @db.VarChar(2048)
+	createdAt    DateTime @default(now()) @map("created_at")
+	updatedAt    DateTime @updatedAt @map("updated_at")
+	user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+	@@map("profiles")
+}
+
+model Education {
+	id          String    @id @default(uuid()) @db.Uuid
+	userId      String    @map("user_id") @db.Uuid
+	institution String    @db.VarChar(200)
+	degree      String?   @db.VarChar(160)
+	field       String?   @db.VarChar(160)
+	startDate   DateTime? @map("start_date") @db.Date
+	endDate     DateTime? @map("end_date") @db.Date
+	description String?
+	createdAt   DateTime  @default(now()) @map("created_at")
+	updatedAt   DateTime  @updatedAt @map("updated_at")
+	user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+	@@index([userId])
+	@@index([userId, startDate])
+	@@map("education")
+}
+
+model Experience {
+	id          String    @id @default(uuid()) @db.Uuid
+	userId      String    @map("user_id") @db.Uuid
+	company     String    @db.VarChar(200)
+	position    String    @db.VarChar(200)
+	startDate   DateTime? @map("start_date") @db.Date
+	endDate     DateTime? @map("end_date") @db.Date
+	description String?
+	createdAt   DateTime  @default(now()) @map("created_at")
+	updatedAt   DateTime  @updatedAt @map("updated_at")
+	user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+	@@index([userId])
+	@@index([userId, startDate])
+	@@map("experience")
+}
+
+model Skill {
+	id         String   @id @default(uuid()) @db.Uuid
+	userId     String   @map("user_id") @db.Uuid
+	name       String   @db.VarChar(120)
+	category   String?  @db.VarChar(120)
+	proficiency Int?
+	createdAt  DateTime @default(now()) @map("created_at")
+	updatedAt  DateTime @updatedAt @map("updated_at")
+	user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+	@@index([userId])
+	@@index([userId, category])
+	@@map("skills")
+}
+
+model Project {
+	id           String   @id @default(uuid()) @db.Uuid
+	userId       String   @map("user_id") @db.Uuid
+	title        String   @db.VarChar(200)
+	description  String?
+	technologies String[] @default([])
+	githubUrl    String?  @map("github_url") @db.VarChar(2048)
+	liveUrl      String?  @map("live_url") @db.VarChar(2048)
+	imageUrl     String?  @map("image_url") @db.VarChar(2048)
+	createdAt    DateTime @default(now()) @map("created_at")
+	updatedAt    DateTime @updatedAt @map("updated_at")
+	user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+	@@index([userId])
+	@@map("projects")
+}
+
+model Certificate {
+	id            String    @id @default(uuid()) @db.Uuid
+	userId        String    @map("user_id") @db.Uuid
+	name          String    @db.VarChar(200)
+	issuer        String?   @db.VarChar(200)
+	issueDate     DateTime? @map("issue_date") @db.Date
+	credentialUrl String?   @map("credential_url") @db.VarChar(2048)
+	createdAt     DateTime  @default(now()) @map("created_at")
+	updatedAt     DateTime  @updatedAt @map("updated_at")
+	user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+	@@index([userId])
+	@@index([userId, issueDate])
+	@@map("certificates")
+}
+
+model Portfolio {
+	id          String   @id @default(uuid()) @db.Uuid
+	userId      String   @unique @map("user_id") @db.Uuid
+	title       String   @db.VarChar(200)
+	slug        String   @unique @db.VarChar(160)
+	template    String   @default("professional") @db.VarChar(80)
+	isPublished Boolean  @default(false) @map("is_published")
+	createdAt   DateTime @default(now()) @map("created_at")
+	updatedAt   DateTime @updatedAt @map("updated_at")
+	user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+	@@index([isPublished])
+	@@map("portfolios")
+}
+
+model AIGeneration {
+	id          String   @id @default(uuid()) @db.Uuid
+	userId      String   @map("user_id") @db.Uuid
+	type        String   @db.VarChar(80)
+	inputText   String   @map("input_text")
+	outputText  String   @map("output_text")
+	status      String   @default("PENDING") @db.VarChar(40)
+	targetType  String?  @map("target_type") @db.VarChar(80)
+	targetId    String?  @map("target_id") @db.VarChar(80)
+	editedText  String?  @map("edited_text")
+	createdAt   DateTime @default(now()) @map("created_at")
+	updatedAt   DateTime @updatedAt @map("updated_at")
+	user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+	@@index([userId])
+	@@index([userId, createdAt])
+	@@index([userId, status])
+	@@map("ai_generations")
+}

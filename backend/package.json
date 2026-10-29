@@ -1,0 +1,27 @@
+{
+	"name": "ai-cv-portfolio-backend",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"dev": "node --watch src/server.js",
+		"start": "node src/server.js",
+		"test": "node --test",
+		"prisma:validate": "prisma validate --schema=prisma/schema.prisma",
+		"prisma:generate": "prisma generate --schema=prisma/schema.prisma",
+		"prisma:migrate": "prisma migrate dev --schema=prisma/schema.prisma"
+	},
+	"dependencies": {
+		"@prisma/client": "6.19.3",
+		"bcryptjs": "^3.0.3",
+		"cors": "^2.8.6",
+		"dotenv": "^18.0.1",
+		"express": "^5.1.0",
+		"groq-sdk": "^1.6.0",
+		"jsonwebtoken": "^9.0.3",
+		"multer": "^2.4.0",
+		"pdfkit": "^0.15.2"
+	},
+	"devDependencies": {
+		"prisma": "6.19.3"
+	}
+}

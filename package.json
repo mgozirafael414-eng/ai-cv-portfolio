@@ -1,0 +1,23 @@
+{
+  "name": "ai-cv-portfolio",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Architecture workspace for the AI-Powered Dynamic Web CV and Portfolio Management System.",
+  "dependencies": {
+    "@prisma/client": "^6.19.3"
+  },
+  "devDependencies": {
+    "prisma": "^6.19.3"
+  },
+  "scripts": {
+    "dev:frontend": "npm --prefix frontend run dev",
+    "build:frontend": "npm --prefix frontend run build",
+    "lint:frontend": "npm --prefix frontend run lint",
+    "prisma:validate": "prisma validate --schema backend/prisma/schema.prisma",
+    "prisma:generate": "prisma generate --schema backend/prisma/schema.prisma",
+    "prisma:migrate": "prisma migrate dev --schema backend/prisma/schema.prisma",
+    "dev:backend": "node backend/src/server.js",
+    "start:backend": "node backend/src/server.js"
+  }
+}
