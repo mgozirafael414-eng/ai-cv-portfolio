@@ -5,8 +5,16 @@ import {
   upsertProfileForUser,
 } from '../services/profile.service.js'
 import { validateProfileInput } from '../utils/profile.validation.js'
-import { mkdir, writeFile } from 'node:fs/promises'
+import { mkdir, unlink, writeFile } from 'node:fs/promises'
 import path from 'node:path'
+import {
+  createProfileImageUploadSignature,
+  deleteProfileImageFromCloudinary,
+  hasCloudinaryConfiguration,
+  hasPartialCloudinaryConfiguration,
+  uploadProfileImageToCloudinary,
+  verifyCloudinaryProfileImage,
+} from '../services/cloudinary.service.js'
 
 const MAX_PROFILE_IMAGE_BYTES = 5 * 1024 * 1024
 
@@ -56,15 +64,73 @@ export async function uploadCurrentProfileImage(request, response, next) {
       return response.status(400).json({ error: 'Upload a valid JPG, PNG, or WEBP image up to 5 MB.' })
     }
 
+    const previousProfile = await getProfileByUserId(request.userId)
+
+    if (process.env.NODE_ENV === 'production' || process.env.CLOUDINARY_CLOUD_NAME || process.env.CLOUDINARY_API_KEY || process.env.CLOUDINARY_API_SECRET) {
+      const uploadedImage = await uploadProfileImageToCloudinary(request.file, request.userId)
+      try {
+        const profile = await replaceProfileImageForUser(request.userId, uploadedImage.url, previousProfile?.profileImage)
+        return response.json({ profile })
+      } catch (error) {
+        try {
+          await deleteProfileImageFromCloudinary(uploadedImage.url, request.userId)
+        } catch (cleanupError) {
+          console.error('Unable to clean up an unlinked profile image after a database error:', cleanupError.message)
+        }
+        throw error
+      }
+    }
+
     const extension = request.file.mimetype === 'image/png' ? 'png' : request.file.mimetype === 'image/webp' ? 'webp' : 'jpg'
     const filename = `${request.userId}-${Date.now()}.${extension}`
     const imagePath = `/uploads/profile-images/${filename}`
-    const previousProfile = await getProfileByUserId(request.userId)
     const directory = path.resolve(process.cwd(), 'uploads/profile-images')
     await mkdir(directory, { recursive: true })
-    await writeFile(path.join(directory, filename), request.file.buffer)
-    const profile = await replaceProfileImageForUser(request.userId, imagePath, previousProfile?.profileImage)
-    return response.json({ profile })
+    const filePath = path.join(directory, filename)
+    await writeFile(filePath, request.file.buffer)
+    try {
+      const profile = await replaceProfileImageForUser(request.userId, imagePath, previousProfile?.profileImage)
+      return response.json({ profile })
+    } catch (error) {
+      await unlink(filePath).catch((cleanupError) => {
+        if (cleanupError.code !== 'ENOENT') console.error('Unable to clean up an unlinked local profile image:', cleanupError.message)
+      })
+      throw error
+    }
+  } catch (error) {
+    return next(error)
+  }
+}
+
+export async function createCurrentProfileImageUploadSignature(request, response, next) {
+  try {
+    if (!hasCloudinaryConfiguration() && !hasPartialCloudinaryConfiguration() && process.env.NODE_ENV !== 'production') {
+      return response.json({ directUpload: false })
+    }
+    return response.json({
+      directUpload: true,
+      ...createProfileImageUploadSignature(request.userId),
+    })
+  } catch (error) {
+    return next(error)
+  }
+}
+
+export async function completeCurrentProfileImageUpload(request, response, next) {
+  try {
+    const uploadedImage = await verifyCloudinaryProfileImage(request.body, request.userId)
+    const previousProfile = await getProfileByUserId(request.userId)
+    try {
+      const profile = await replaceProfileImageForUser(request.userId, uploadedImage.url, previousProfile?.profileImage)
+      return response.json({ profile })
+    } catch (error) {
+      try {
+        await deleteProfileImageFromCloudinary(uploadedImage.url, request.userId)
+      } catch (cleanupError) {
+        console.error('Unable to clean up an unlinked profile image after a database error:', cleanupError.message)
+      }
+      throw error
+    }
   } catch (error) {
     return next(error)
   }

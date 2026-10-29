@@ -48,6 +48,32 @@ export const profileApi = {
   update: async (payload) => (await json('PUT', '/api/profile', payload)).profile,
   uploadImage: async (file) => {
     const apiUrl = requireApiUrl()
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 5 * 1024 * 1024) {
+      throw new ApiError('Choose a JPG, PNG, or WEBP image up to 5 MB.', 400)
+    }
+
+    const uploadSettings = await request('/api/profile/image/signature', { method: 'POST' })
+    if (uploadSettings.directUpload) {
+      const uploadForm = new FormData()
+      uploadForm.append('file', file)
+      uploadForm.append('api_key', uploadSettings.apiKey)
+      for (const [key, value] of Object.entries(uploadSettings.parameters)) uploadForm.append(key, String(value))
+      uploadForm.append('signature', uploadSettings.signature)
+      const uploadResponse = await fetch(uploadSettings.uploadUrl, { method: 'POST', body: uploadForm })
+      const uploaded = await uploadResponse.json().catch(() => ({}))
+      if (!uploadResponse.ok) {
+        throw new ApiError(uploaded.error?.message || 'Unable to upload profile picture to persistent storage.', uploadResponse.status)
+      }
+
+      const result = await json('POST', '/api/profile/image/complete', {
+        secure_url: uploaded.secure_url,
+        public_id: uploaded.public_id,
+        format: uploaded.format,
+        bytes: uploaded.bytes,
+      })
+      return result.profile
+    }
+
     const token = localStorage.getItem('cv_auth_token')
     const formData = new FormData()
     formData.append('image', file)

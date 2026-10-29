@@ -3,7 +3,7 @@
 ## Conventions
 
 - Base URL for local development: `http://localhost:5000`. The server port is configurable with `PORT`.
-- JSON endpoints use `Content-Type: application/json`, except profile image upload (`multipart/form-data`).
+- JSON endpoints use `Content-Type: application/json`; in configured production, image bytes upload directly from the browser to the image provider.
 - Protected routes require `Authorization: Bearer <access-token>`. The token is returned by login; registration returns a user but does not log the client in.
 - Request JSON bodies below show the supported fields. Omit optional fields when not setting them; `null` can clear many optional profile/resource fields.
 - Error envelope: `{ "error": "message" }`; validation errors generally add `"details": ["..."]`. Unhandled errors return `500` with `{ "error": "Internal server error" }`.
@@ -34,10 +34,12 @@ All require a bearer token. Profile fields accepted by `PUT /api/profile` are op
 |---|---|---|---|
 | `GET /api/profile` | None | `200 { "profile": { ...profile fields... } }` | `401`; `404` if no profile exists |
 | `PUT /api/profile` | JSON profile fields above | `201 { "profile": ... }` on create; `200` on update | `400` validation; `401` |
+| `POST /api/profile/image/signature` | No body | `200 { "directUpload": true, "uploadUrl", "cloudName", "apiKey", "parameters", "signature" }`; local development without Cloudinary returns `{ "directUpload": false }` | `401`; `503` if production storage is not configured |
+| `POST /api/profile/image/complete` | JSON Cloudinary asset metadata (`secure_url`, `public_id`, `format`, `bytes`) | `200 { "profile": ... }` after verifying the asset with Cloudinary and updating the authenticated user's profile | `400` invalid or other-user asset; `401`; `502` storage verification failure |
 | `POST /api/profile/image` | Multipart field `image`; one JPEG/PNG/WEBP file, up to 5 MB | `200 { "profile": ... }` | `400` missing/invalid file or over size; `401`; unexpected upload errors use standard error handling |
-| `DELETE /api/profile/image` | None | `200 { "profile": ... }` | `401`; `404` if profile does not exist |
+| `DELETE /api/profile/image` | None | `200 { "profile": ... }` | `401`; `404` if profile does not exist; `502` if the profile reference is cleared but provider cleanup fails |
 
-Image MIME type and file signature are both checked. Files are stored under `uploads/profile-images` relative to the backend process working directory (repository-root `uploads` with the root start command, or `backend/uploads` when the backend package is the working directory), and the database stores the path.
+In configured production, the browser uploads directly to Cloudinary using a backend-issued signature, avoiding Vercel's function request-body limit. Before saving, the backend verifies the asset with Cloudinary, including the authenticated user's public-ID namespace, HTTPS URL, actual format, and byte size. The Cloudinary API secret never leaves the backend. In local development without Cloudinary configuration, the client retains the existing authenticated multipart route; uploads remain limited to one valid JPEG, PNG, or WEBP file up to 5 MB. Existing public portfolio and CV image renderers accept the stored absolute URL; legacy `/uploads/profile-images/...` paths remain supported.
 
 ## Protected career-data endpoints
 

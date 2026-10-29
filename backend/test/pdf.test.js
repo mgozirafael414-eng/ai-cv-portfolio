@@ -10,6 +10,9 @@ process.env.JWT_SECRET = 'ai-test-secret'
 process.env.JWT_EXPIRES_IN = '1h'
 process.env.FRONTEND_URL = 'https://my-frontend.vercel.app'
 process.env.CORS_ORIGINS = 'http://localhost:5173,http://127.0.0.1:5173'
+process.env.CLOUDINARY_CLOUD_NAME = 'test-cloud'
+process.env.CLOUDINARY_API_KEY = 'test-api-key'
+process.env.CLOUDINARY_API_SECRET = 'test-api-secret'
 
 const userId = '00000000-0000-0000-0000-000000000300'
 const otherUserId = '00000000-0000-0000-0000-000000000301'
@@ -28,7 +31,26 @@ let server
 let baseUrl
 let profileImage = null
 let longCvDescription = ''
+let remoteImageMode = 'success'
+const originalFetch = globalThis.fetch
 const profileImageFilename = `pdf-test-${randomUUID()}.png`
+const pngFixture = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64')
+
+globalThis.fetch = async (input, options) => {
+  const url = String(input)
+  if (!url.startsWith('https://res.cloudinary.com/')) return originalFetch(input, options)
+  if (remoteImageMode === 'failure') return new Response('Unavailable', { status: 503 })
+  if (remoteImageMode === 'oversized') {
+    return new Response(new Uint8Array(10), {
+      status: 200,
+      headers: { 'content-type': 'image/png', 'content-length': String(6 * 1024 * 1024) },
+    })
+  }
+  return new Response(pngFixture, {
+    status: 200,
+    headers: { 'content-type': 'image/png', 'content-length': String(pngFixture.length) },
+  })
+}
 
 before(async () => {
   await mkdir('uploads/profile-images', { recursive: true })
@@ -143,6 +165,7 @@ after(async () => {
   prisma.skill.findMany = originalMethods.skillFindMany
   prisma.project.findMany = originalMethods.projectFindMany
   prisma.certificate.findMany = originalMethods.certificateFindMany
+  globalThis.fetch = originalFetch
   server.close()
   await prisma.$disconnect()
 })
@@ -289,6 +312,46 @@ test('PDF succeeds when the stored profile image is missing', async () => {
   assert.equal(response.status, 200)
   assert.equal(response.headers.get('content-type'), 'application/pdf')
   assert.match(pdf.toString('latin1'), /^%PDF/)
+})
+
+test('PDF embeds a validated remote Cloudinary profile image', async () => {
+  profileImage = 'https://res.cloudinary.com/test-cloud/image/upload/v123/profile-images/cv-test.png'
+  remoteImageMode = 'success'
+
+  const response = await request('/api/cv/pdf', { token: signAccessToken(userId) })
+  const pdf = Buffer.from(await response.arrayBuffer())
+
+  assert.equal(response.status, 200)
+  assert.match(pdf.toString('latin1'), /^%PDF/)
+})
+
+test('PDF generation continues without a remote image when storage fails or exceeds the size limit', async () => {
+  profileImage = 'https://res.cloudinary.com/test-cloud/image/upload/v123/profile-images/cv-test.png'
+
+  for (const mode of ['failure', 'oversized']) {
+    remoteImageMode = mode
+    const response = await request('/api/cv/pdf', { token: signAccessToken(userId) })
+    const pdf = Buffer.from(await response.arrayBuffer())
+    assert.equal(response.status, 200, `${mode} image fetch should not fail PDF generation`)
+    assert.match(pdf.toString('latin1'), /^%PDF/)
+  }
+})
+
+test('PDF does not fetch arbitrary remote profile image URLs', async () => {
+  let attemptedExternalFetch = false
+  const previousFetch = globalThis.fetch
+  globalThis.fetch = async (input, options) => {
+    if (String(input).startsWith('https://outside.example/')) attemptedExternalFetch = true
+    return previousFetch(input, options)
+  }
+  profileImage = 'https://outside.example/profile.png'
+  try {
+    const response = await request('/api/cv/pdf', { token: signAccessToken(userId) })
+    assert.equal(response.status, 200)
+    assert.equal(attemptedExternalFetch, false)
+  } finally {
+    globalThis.fetch = previousFetch
+  }
 })
 
 test('user cannot generate another user PDF', async () => {

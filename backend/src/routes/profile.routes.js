@@ -1,6 +1,8 @@
 import { Router } from 'express'
 import {
   getCurrentProfile,
+  completeCurrentProfileImageUpload,
+  createCurrentProfileImageUploadSignature,
   removeCurrentProfileImage,
   uploadCurrentProfileImage,
   upsertCurrentProfile,
@@ -19,6 +21,8 @@ const profileImageUpload = (request, response, next) => upload.single('image')(r
 router.use(requireAuth)
 router.get('/', getCurrentProfile)
 router.put('/', upsertCurrentProfile)
+router.post('/image/signature', createCurrentProfileImageUploadSignature)
+router.post('/image/complete', completeCurrentProfileImageUpload)
 router.post('/image', profileImageUpload, uploadCurrentProfileImage)
 router.delete('/image', removeCurrentProfileImage)
 

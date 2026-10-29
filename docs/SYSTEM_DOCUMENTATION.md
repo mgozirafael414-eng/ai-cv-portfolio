@@ -70,11 +70,13 @@ flowchart LR
   API -->|Prisma Client| DB[(PostgreSQL)]
   API -->|Optional HTTPS provider request| Groq[Groq Chat Completions]
   API -->|PDFKit| PDF[PDF response]
-  API -->|Static profile-image files| Uploads[process cwd/uploads]
+  API -->|Signed upload/delete and validated image fetch| Cloudinary[Cloudinary image storage]
+  Browser -->|Signed direct image upload| Cloudinary
+  API -->|Legacy local images| Uploads[process cwd/uploads]
   Visitor[Public visitor] -->|GET published slug| API
 ```
 
-The frontend calls the API through `frontend/src/services/api.js`. The API is assembled in `backend/src/app.js`; routes call controllers, services, validation helpers, and Prisma. The API also serves files from an `uploads` directory resolved against the backend process's current working directory. Starting from the repository root therefore uses a root-level `uploads` directory; starting with the backend package uses `backend/uploads`. The public portfolio endpoint bypasses authentication but only returns a portfolio when it is marked published. There is no OpenAPI/Swagger specification in the repository.
+The frontend calls the API through `frontend/src/services/api.js`. The API is assembled in `backend/src/app.js`; routes call controllers, services, validation helpers, and Prisma. Persistent profile uploads use a backend-issued signed Cloudinary request, direct browser-to-Cloudinary transfer, and server-side asset verification before the profile URL is saved. Legacy/local development paths remain supported under an `uploads` directory resolved against the backend process's current working directory. The Vercel filesystem is temporary, so production uploads require Cloudinary configuration. The public portfolio endpoint bypasses authentication but only returns a portfolio when it is marked published. There is no OpenAPI/Swagger specification in the repository.
 
 ## 5. Technology stack
 
@@ -86,7 +88,7 @@ The frontend calls the API through `frontend/src/services/api.js`. The API is as
 | Authentication | `bcryptjs`, `jsonwebtoken` | Password hashing and signed access tokens |
 | AI integration | `groq-sdk` | Optional Groq chat-completion requests |
 | PDF | `pdfkit` | Server-side CV PDF generation |
-| Uploads | `multer` and Node filesystem APIs | In-memory image validation and local image-file storage |
+| Uploads | `multer`, Cloudinary signed REST API, Node filesystem APIs | In-memory validation, persistent Cloudinary storage when configured, and local legacy/development support |
 | Tests/lint | Node built-in test runner, ESLint | Backend API tests and frontend linting |
 
 These are the technologies present in the package manifests. Reasons stated here describe their implemented role, not a comparative benchmark.
@@ -231,7 +233,7 @@ The backend package also has `npm --prefix backend run dev`, `start`, `test`, `p
 
 - Back up PostgreSQL before applying schema changes; review SQL migrations and use production migration workflows rather than `migrate dev`.
 - The second migration adds a required `updated_at` to `ai_generations` without a database default. Its SQL warns that applying it to a non-empty table may fail; assess existing data and plan an explicit safe migration before applying it to a populated database.
-- Back up the process working directory's `uploads/profile-images` separately if uploaded images must survive host replacement; the database stores image paths, not image binaries.
+- Configure Cloudinary credentials in the backend deployment and test image cleanup; local `uploads/profile-images` files are not durable on Vercel.
 - Keep secrets in deployment/local environment configuration and rotate credentials if exposed.
 - Review public portfolio fields before publication and document retention/deletion policy before production use.
 - Monitor the optional AI provider's terms, availability, rate limits, privacy practices, and model changes.

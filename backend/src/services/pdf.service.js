@@ -2,9 +2,13 @@ import PDFDocument from 'pdfkit'
 import { prisma } from '../config/prisma.js'
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
+import { getCloudinaryImageFetchUrl } from './cloudinary.service.js'
 
 const margin = { top: 46, right: 46, bottom: 46, left: 48 }
 const modernSidebarWidth = 172
+const MAX_PROFILE_IMAGE_BYTES = 5 * 1024 * 1024
+const PROFILE_IMAGE_TIMEOUT_MS = 5_000
+const imageContentTypes = new Set(['image/jpeg', 'image/png', 'image/webp'])
 const templates = new Set(['professional', 'modern', 'classic', 'minimal', 'creative'])
 const colors = {
   navy: '#17324d',
@@ -68,17 +72,61 @@ function buildCvData(user, profile, experience, education, skills, projects, cer
 }
 
 async function getProfileImageBuffer(imagePath) {
-  if (!imagePath?.startsWith('/uploads/profile-images/')) return null
+  const cloudinaryUrl = getCloudinaryImageFetchUrl(imagePath)
+  if (cloudinaryUrl) {
+    try {
+      const response = await fetch(cloudinaryUrl, {
+        redirect: 'error',
+        signal: AbortSignal.timeout(PROFILE_IMAGE_TIMEOUT_MS),
+      })
+      if (!response.ok || !imageContentTypes.has(response.headers.get('content-type')?.split(';')[0])) {
+        throw new Error('Remote profile image returned an unexpected response.')
+      }
+
+      const contentLength = Number(response.headers.get('content-length'))
+      if (Number.isFinite(contentLength) && contentLength > MAX_PROFILE_IMAGE_BYTES) {
+        throw new Error('Remote profile image exceeds the size limit.')
+      }
+
+      const reader = response.body?.getReader()
+      if (!reader) throw new Error('Remote profile image has no response body.')
+      const chunks = []
+      let totalBytes = 0
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        totalBytes += value.byteLength
+        if (totalBytes > MAX_PROFILE_IMAGE_BYTES) {
+          await reader.cancel()
+          throw new Error('Remote profile image exceeds the size limit.')
+        }
+        chunks.push(Buffer.from(value))
+      }
+
+      const buffer = Buffer.concat(chunks)
+      if (!isSupportedImageBuffer(buffer)) throw new Error('Remote profile image data is not a supported image.')
+      return buffer
+    } catch (error) {
+      console.warn('Unable to include the stored profile image in the CV PDF:', error.message)
+      return null
+    }
+  }
+
+  if (!/^\/uploads\/profile-images\/[a-zA-Z0-9._-]+$/.test(imagePath || '')) return null
   try {
     const buffer = await readFile(path.resolve(process.cwd(), `.${imagePath}`))
-    const isJpeg = buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff
-    const isPng = buffer.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))
-    const isWebp = buffer.subarray(0, 4).toString('ascii') === 'RIFF' && buffer.subarray(8, 12).toString('ascii') === 'WEBP'
-    return isJpeg || isPng || isWebp ? buffer : null
+    return isSupportedImageBuffer(buffer) ? buffer : null
   } catch (error) {
     if (error.code === 'ENOENT') return null
     throw error
   }
+}
+
+function isSupportedImageBuffer(buffer) {
+  const isJpeg = buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff
+  const isPng = buffer.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))
+  const isWebp = buffer.subarray(0, 4).toString('ascii') === 'RIFF' && buffer.subarray(8, 12).toString('ascii') === 'WEBP'
+  return isJpeg || isPng || isWebp
 }
 
 function ensureRoom(document, height) {

@@ -12,6 +12,7 @@ The repository includes React/Vite frontend code, an Express API, PostgreSQL/Pri
 
 Start with [System Documentation](docs/SYSTEM_DOCUMENTATION.md). Other references:
 
+- [Production Deployment](docs/DEPLOYMENT.md)
 - [Database Documentation](docs/DATABASE_DOCUMENTATION.md)
 - [API Documentation](docs/API_DOCUMENTATION.md)
 - [User Manual](docs/USER_MANUAL.md)
@@ -30,7 +31,7 @@ Requirements: Node.js/npm and PostgreSQL versions compatible with the installed 
    npm install --prefix backend
    npm install --prefix frontend
    ```
-2. Copy `backend/.env.example` to the repository-root `.env` for root-level commands and backend startup. Configure `DATABASE_URL`, a strong `JWT_SECRET`, and local CORS values. Alternatively, when starting with `npm --prefix backend run dev`, provide `backend/.env`.
+2. Copy `backend/.env.example` to the repository-root `.env` for root-level commands and backend startup. Configure `DATABASE_URL`, `DIRECT_URL`, a strong `JWT_SECRET`, and local CORS values. For a local PostgreSQL database, `DATABASE_URL` and `DIRECT_URL` may use the same connection string. Alternatively, when starting with `npm --prefix backend run dev`, provide `backend/.env`.
 3. If needed, copy `frontend/.env.example` to `frontend/.env` and set `VITE_API_URL` (development default: `http://localhost:5000`).
 4. Validate and generate Prisma Client:
    ```bash

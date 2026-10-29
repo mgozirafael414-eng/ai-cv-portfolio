@@ -14,16 +14,18 @@ import aiRoutes from './routes/ai.routes.js'
 import cvPdfRoutes from './routes/cv-pdf.routes.js'
 
 function getAllowedOrigins() {
-  const configuredOrigins = [
+  const developmentOrigins = process.env.NODE_ENV === 'production' ? [] : [
     'http://localhost:5173',
     'http://localhost:5174',
     'http://127.0.0.1:5173',
     'http://127.0.0.1:5174',
+  ]
+  const configuredOrigins = [
     process.env.FRONTEND_URL,
     ...(process.env.CORS_ORIGINS || '').split(','),
   ]
 
-  return configuredOrigins
+  return [...developmentOrigins, ...configuredOrigins]
     .filter(Boolean)
     .flatMap((value) => String(value).split(','))
     .map((origin) => origin.trim())
