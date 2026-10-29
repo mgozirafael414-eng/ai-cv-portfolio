@@ -33,10 +33,8 @@ function getAllowedOrigins() {
     .filter(Boolean)
 }
 
-// Keep app construction separate from the Vercel src/index.js function entrypoint.
-export function createApp() {
-  const app = express()
-
+// Keep route and middleware setup separate from the Vercel entrypoint.
+export function createApp(app = express()) {
   const allowedOrigins = getAllowedOrigins()
   app.use(cors({
     origin: (origin, callback) => {

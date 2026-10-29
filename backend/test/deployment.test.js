@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { after, before, test } from 'node:test'
-import { access } from 'node:fs/promises'
+import { access, readFile } from 'node:fs/promises'
 
 const originalEnvironment = {
   NODE_ENV: process.env.NODE_ENV,
@@ -32,6 +32,8 @@ after(async () => {
 })
 
 test('exports an Express app suitable for Vercel and serves its health endpoint', async () => {
+  const entrypoint = await readFile(new URL('../src/index.js', import.meta.url), 'utf8')
+  assert.match(entrypoint, /import\s+express\s+from\s+['"]express['"]/)
   assert.equal(typeof app, 'function')
   assert.equal(typeof app.listen, 'function')
   await assert.rejects(access(new URL('../src/app.js', import.meta.url)))
